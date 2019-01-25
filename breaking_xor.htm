@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<!-- saved from url=(0062)https://idafchev.github.io/crypto/2017/04/13/crypto_part1.html -->
+<html style="" class="gr__idafchev_github_io"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="google-site-verification" content="cW4TLH1bfeLvBJnTMoroLoGm6POKJdKgoyIgt8hQHfI">
+    
+    
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    
+    
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+<script type="text/javascript" async="" src="./breaking_xor_files/analytics.js"></script><script async="" src="./breaking_xor_files/js"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-110057192-1');
+</script>
+
+    
+
+    <link rel="stylesheet" href="./breaking_xor_files/style.css">
+    <script src="./breaking_xor_files/jquery.min.js"></script>
+    <script src="./breaking_xor_files/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="/assets/css/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>Crypto - Part 1. Breaking XOR Encryption. | Ring 0x00</title>
+<meta name="generator" content="Jekyll v3.7.4">
+<meta property="og:title" content="Crypto - Part 1. Breaking XOR Encryption.">
+<meta name="author" content="Iliya Dafchev">
+<meta property="og:locale" content="en_US">
+<meta name="description" content="The first part of a series of posts about encryption.">
+<meta property="og:description" content="The first part of a series of posts about encryption.">
+<link rel="canonical" href="https://idafchev.github.io/crypto/2017/04/13/crypto_part1.html">
+<meta property="og:url" content="https://idafchev.github.io/crypto/2017/04/13/crypto_part1.html">
+<meta property="og:site_name" content="Ring 0x00">
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2017-04-13T21:12:01+00:00">
+<script type="application/ld+json">
+{"@type":"BlogPosting","url":"https://idafchev.github.io/crypto/2017/04/13/crypto_part1.html","headline":"Crypto - Part 1. Breaking XOR Encryption.","dateModified":"2017-04-13T21:12:01+00:00","datePublished":"2017-04-13T21:12:01+00:00","author":{"@type":"Person","name":"Iliya Dafchev"},"description":"The first part of a series of posts about encryption.","mainEntityOfPage":{"@type":"WebPage","@id":"https://idafchev.github.io/crypto/2017/04/13/crypto_part1.html"},"@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+  <script src="./breaking_xor_files/embed.js" data-timestamp="1548295298248"></script><link rel="preload" as="style" href="https://c.disquscdn.com/next/embed/styles/lounge.d49f53e192b9080ef8880a7c9b24f1c3.css"><link rel="preload" as="script" href="https://c.disquscdn.com/next/embed/common.bundle.81998d48c30a90f1e372f73e226bece4.js"><link rel="preload" as="script" href="https://c.disquscdn.com/next/embed/lounge.bundle.d0c1d0d438572ed237181f0b3db8af75.js"><link rel="preload" as="script" href="https://disqus.com/next/config.js"><script src="./breaking_xor_files/alfie.f51946af45e0b561c60f768335c9eb79.js" async="" charset="UTF-8"></script></head>
+  <body data-gr-c-s-loaded="true">
+    
+    <div class="wrapper">
+      <section>
+        <div id="title">
+          <a href="https://idafchev.github.io/"><h1>Ring 0x00</h1></a>
+          <p>One ring to rule them all</p>
+          
+          <span><a style="padding: 15px;" href="https://idafchev.github.io/index">Home  </a></span>
+          <span><a style="padding: 15px;" href="https://idafchev.github.io/about">About  </a></span>
+          <span><a style="padding: 15px;" href="https://idafchev.github.io/blog_posts">Posts  </a></span>
+          <span><a style="padding: 15px;" href="https://idafchev.github.io/contact">Contact</a></span>
+         
+          <hr>
+          <span class="credits left">Maintained by <a href="https://github.com/idafchev">Iliya Dafchev</a></span>
+          <span class="credits right">Hosted on GitHub Pages — Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        
+        <div class="post">
+  <h1 class="post-title">Crypto - Part 1. Breaking XOR Encryption.</h1>
+  <span class="post-date">13 Apr 2017</span>
+  <h1 id="introduction">Introduction</h1>
+<p>In the Crypto series of posts I’ll try to explain different encryption algorithms, implement them in code and then try to break them. They’re also writeups for the <a href="http://cryptopals.com/">cryptopals</a> crypto challenges and I recommend trying to solve them youtself before reading this and other crypto posts.</p>
+
+<p>I’m not a cryptographer, nor  am I an expert in programming! The purpose of these posts (and the blog in general) is for me to write down what I’ve learned so it can be useful to others (and for others to point out my mistakes!).</p>
+
+<h1 id="single-byte-xor-cipher">Single-byte XOR cipher</h1>
+<p>This cipher applies the XOR operation on every byte of the plaintext with the same one-byte key. For example:<br>
+key = ‘k’ ; plaintext = ‘plaintext’ ; ciphertext = kkkkkkkkk XOR plaintext</p>
+
+<p><img src="./breaking_xor_files/xor01.png" alt="xor01"></p>
+
+<p>And to decrypt the message XOR every byte of the ciphertext with the key:<br>
+key = ‘k’ ; plaintext = kkkkkkkkk XOR ciphertext</p>
+
+<p><img src="./breaking_xor_files/xor02.png" alt="xor02"></p>
+
+<p>Below is a function that does XOR of two strings of equal length:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">xor</span><span class="p">(</span><span class="n">str1</span><span class="p">,</span> <span class="n">str2</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">str1</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">str2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="s">"XOR EXCEPTION: Strings are not of equal length!"</span>
+    <span class="n">s1</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="n">str1</span><span class="p">)</span>
+    <span class="n">s2</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="n">str2</span><span class="p">)</span>
+  
+    <span class="n">result</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span> <span class="nb">len</span><span class="p">(</span><span class="n">s1</span><span class="p">)</span> <span class="p">):</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">s1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">^</span> <span class="n">s2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span>
+    
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span> <span class="n">result</span> <span class="p">)</span>
+</code></pre></div></div>
+
+<p>The function for encryption and decryption:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">single_byte_xor</span><span class="p">(</span><span class="n">plaintext</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="s">"KEY LENGTH EXCEPTION: In single_byte_xor key must be 1 byte long!"</span>
+    <span class="k">return</span> <span class="n">xor</span><span class="p">(</span><span class="n">plaintext</span><span class="p">,</span> <span class="n">key</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">plaintext</span><span class="p">))</span>
+</code></pre></div></div>
+
+<h1 id="break-the-single-byte-xor-cipher">Break the single-byte XOR cipher</h1>
+<p>This cipher is essentialy a substitution cipher, so it’s vulnerable to frequency analysis and because the key is only one byte it’s also easy to bruteforce (there are only 256 possible keys…).<br>
+The frequency analysis is suitable for longer messages, so I’ll implement only the bruteforce method which always works regardless of the message length.</p>
+
+<p>But when we try every one of the 256 possible keys, how do we know that the produced output is the actual plaintext? If the plaintext is written in english, we need a way to test if a given string is an english text.</p>
+
+<p>To decide wether a string is an english text I’ll use some the following rules:</p>
+<ol>
+  <li>The string contains only ascii printable characters</li>
+  <li>Letter ‘E’ and space are the most frequent characters (for sufficiently long messages)</li>
+  <li>The letters E,T,A,O,I,N make up around 40% of the text (those are the most frequent letters in the english language)</li>
+  <li>The digraphs cj, fq, gx, hx, jf, jq, jx, jz, qb, qc, qj, qk, qx, qz, sx, vf, vj, vq, vx, wx, xj, zx never occur in english words</li>
+  <li>Punctuation makes up to 2%-3% of the text (for short messages up to 10%).</li>
+  <li>Has at least one vowel (every word should have at least one vowel)</li>
+  <li>Around 80%-90% or more of the text should be made up of letters</li>
+</ol>
+
+<p>I found the digraphs using the following script and <a href="https://github.com/dwyl/english-words/blob/master/words.txt">this dictionary</a> which contains 355k english words.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">string</span><span class="p">,</span> <span class="n">itertools</span>
+
+<span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s">'words.txt'</span><span class="p">,</span><span class="s">'r'</span><span class="p">)</span>
+<span class="nb">file</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    
+<span class="n">digraphs</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">digraph</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">lowercase</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="s">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">digraph</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">file</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">digraphs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+            
+<span class="k">print</span> <span class="s">"Digraphs: "</span><span class="p">,</span> <span class="n">digraphs</span>
+</code></pre></div></div>
+
+<p>For the punctuation statistic similar script was used and a 1000 page ebook.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">string</span>
+
+<span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s">'book.txt'</span><span class="p">,</span><span class="s">'r'</span><span class="p">)</span>
+<span class="nb">file</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    
+<span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">punctuation</span><span class="p">:</span>
+    <span class="n">cnt</span> <span class="o">+=</span> <span class="nb">file</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+  
+<span class="k">print</span> <span class="s">"Punctuation makes up </span><span class="si">%</span><span class="s">f </span><span class="si">%% </span><span class="s">of the text!"</span> <span class="o">%</span> <span class="p">(</span> <span class="nb">float</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="nb">file</span><span class="p">)</span> <span class="p">)</span>
+</code></pre></div></div>
+
+<p>And below is the code I wrote that checks if a given string is an english text, by using the rules mentioned above. It’s not perfect but most of the time works well enough.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">string</span>
+
+<span class="k">def</span> <span class="nf">has_nonprintable_characters</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">char</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">printable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">return</span> <span class="bp">False</span>
+
+<span class="k">def</span> <span class="nf">has_vowels</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+    <span class="n">vowels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="s">"eyuioa"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">vowels</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">return</span> <span class="bp">False</span>
+
+<span class="k">def</span> <span class="nf">has_forbidden_digraphs</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+    <span class="n">forbidden_digraphs</span> <span class="o">=</span> <span class="p">[</span><span class="s">'cj'</span><span class="p">,</span><span class="s">'fq'</span><span class="p">,</span><span class="s">'gx'</span><span class="p">,</span><span class="s">'hx'</span><span class="p">,</span><span class="s">'jf'</span><span class="p">,</span><span class="s">'jq'</span><span class="p">,</span><span class="s">'jx'</span><span class="p">,</span><span class="s">'jz'</span><span class="p">,</span><span class="s">'qb'</span><span class="p">,</span><span class="s">'qc'</span><span class="p">,</span><span class="s">'qj'</span><span class="p">,</span><span class="s">'qk'</span><span class="p">,</span><span class="s">'qx'</span><span class="p">,</span><span class="s">'qz'</span><span class="p">,</span><span class="s">'sx'</span><span class="p">,</span><span class="s">'vf'</span><span class="p">,</span><span class="s">'vj'</span><span class="p">,</span><span class="s">'vq'</span><span class="p">,</span><span class="s">'vx'</span><span class="p">,</span><span class="s">'wx'</span><span class="p">,</span><span class="s">'xj'</span><span class="p">,</span><span class="s">'zx'</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">digraph</span> <span class="ow">in</span> <span class="n">forbidden_digraphs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">digraph</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">return</span> <span class="bp">False</span>
+
+<span class="k">def</span> <span class="nf">has_necessary_percentage_frequent_characters</span><span class="p">(</span> <span class="n">text</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">38</span> <span class="p">):</span>
+    <span class="n">most_frequent_characters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="s">"etaoin"</span><span class="p">)</span>
+  
+    <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">most_frequent_characters</span><span class="p">:</span>
+        <span class="n">cnt</span> <span class="o">+=</span> <span class="n">text</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+      
+    <span class="n">percent_characters</span> <span class="o">=</span>  <span class="nb">float</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+  
+    <span class="c"># The most_frequent_characters shoud be more than 38% of the text.</span>
+    <span class="c"># For short messages this value may need to be lowered.</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">percent_characters</span> <span class="o">&lt;</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">return</span> <span class="bp">True</span>
+  
+<span class="k">def</span> <span class="nf">has_necessary_percentage_punctuation</span><span class="p">(</span> <span class="n">text</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">10</span> <span class="p">):</span>
+    <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">punctuation</span><span class="p">:</span>
+        <span class="n">cnt</span> <span class="o">+=</span> <span class="n">text</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+  
+    <span class="c"># Punctuation characters should be no more than 10% of the text.</span>
+    <span class="n">punctuation</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>  
+    <span class="k">if</span> <span class="n">punctuation</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">return</span> <span class="bp">True</span>
+
+<span class="k">def</span> <span class="nf">has_english_words</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+    <span class="n">most_frequent_words</span> <span class="o">=</span> <span class="p">[</span><span class="s">'the'</span><span class="p">,</span> <span class="s">'and'</span><span class="p">,</span> <span class="s">'have'</span><span class="p">,</span> <span class="s">'that'</span><span class="p">,</span> <span class="s">'for'</span><span class="p">,</span>
+    <span class="s">'you'</span><span class="p">,</span> <span class="s">'with'</span><span class="p">,</span> <span class="s">'say'</span><span class="p">,</span> <span class="s">'this'</span><span class="p">,</span> <span class="s">'they'</span><span class="p">,</span> <span class="s">'but'</span><span class="p">,</span> <span class="s">'his'</span><span class="p">,</span> <span class="s">'from'</span><span class="p">,</span>
+    <span class="s">'that'</span><span class="p">,</span> <span class="s">'not'</span><span class="p">,</span> <span class="s">"n't"</span><span class="p">,</span> <span class="s">'she'</span><span class="p">,</span> <span class="s">'what'</span><span class="p">,</span> <span class="s">'their'</span><span class="p">,</span> <span class="s">'can'</span><span class="p">,</span> <span class="s">'who'</span><span class="p">,</span>
+    <span class="s">'get'</span><span class="p">,</span> <span class="s">'would'</span><span class="p">,</span> <span class="s">'her'</span><span class="p">,</span> <span class="s">'make'</span><span class="p">,</span> <span class="s">'about'</span><span class="p">,</span> <span class="s">'know'</span><span class="p">,</span> <span class="s">'will'</span><span class="p">,</span>
+    <span class="s">'one'</span><span class="p">,</span> <span class="s">'time'</span><span class="p">,</span> <span class="s">'there'</span><span class="p">,</span> <span class="s">'year'</span><span class="p">,</span> <span class="s">'think'</span><span class="p">,</span> <span class="s">'when'</span><span class="p">,</span> <span class="s">'which'</span><span class="p">,</span>
+    <span class="s">'them'</span><span class="p">,</span> <span class="s">'some'</span><span class="p">,</span> <span class="s">'people'</span><span class="p">,</span> <span class="s">'take'</span><span class="p">,</span> <span class="s">'out'</span><span class="p">,</span> <span class="s">'into'</span><span class="p">,</span><span class="s">'just'</span><span class="p">,</span> <span class="s">'see'</span><span class="p">,</span>
+    <span class="s">'him'</span><span class="p">,</span> <span class="s">'your'</span><span class="p">,</span> <span class="s">'come'</span><span class="p">,</span> <span class="s">'could'</span><span class="p">,</span> <span class="s">'now'</span><span class="p">,</span> <span class="s">'than'</span><span class="p">,</span> <span class="s">'like'</span><span class="p">,</span> <span class="s">'other'</span><span class="p">,</span>
+    <span class="s">'how'</span><span class="p">,</span> <span class="s">'then'</span><span class="p">,</span> <span class="s">'its'</span><span class="p">,</span> <span class="s">'out'</span><span class="p">,</span> <span class="s">'two'</span><span class="p">,</span> <span class="s">'more ,these'</span><span class="p">,</span> <span class="s">'want'</span><span class="p">,</span>
+    <span class="s">'way'</span><span class="p">,</span> <span class="s">'look'</span><span class="p">,</span> <span class="s">'first'</span><span class="p">,</span> <span class="s">'also'</span><span class="p">,</span> <span class="s">'new'</span><span class="p">,</span> <span class="s">'because'</span><span class="p">,</span> <span class="s">'day'</span><span class="p">,</span>
+    <span class="s">'more'</span><span class="p">,</span> <span class="s">'use'</span><span class="p">,</span> <span class="s">'man'</span><span class="p">,</span> <span class="s">'find'</span><span class="p">,</span> <span class="s">'here'</span><span class="p">,</span> <span class="s">'thing'</span><span class="p">,</span> <span class="s">'give'</span><span class="p">,</span> <span class="s">'many'</span><span class="p">]</span>
+  
+    <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">most_frequent_words</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">return</span> <span class="bp">False</span>
+  
+  
+<span class="k">def</span> <span class="nf">is_english</span><span class="p">(</span> <span class="n">input_text</span> <span class="p">):</span>    
+    <span class="n">text</span> <span class="o">=</span> <span class="n">input_text</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+  
+    <span class="k">if</span> <span class="n">has_nonprintable_characters</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+
+    <span class="c"># If the text contains one of the most frequent english words</span>
+    <span class="c"># it is very likely that it's an english text  </span>
+    <span class="k">if</span> <span class="n">has_english_words</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">True</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_vowels</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+ 
+    <span class="k">if</span> <span class="n">has_forbidden_digraphs</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_necessary_percentage_frequent_characters</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_necessary_percentage_punctuation</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+ 
+    <span class="k">return</span> <span class="bp">True</span>
+</code></pre></div></div>
+
+<p>Now we are ready to construct the bruteforce function.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">break_single_byte_xor</span><span class="p">(</span> <span class="n">ciphertext</span> <span class="p">):</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">plaintext</span> <span class="o">=</span> <span class="p">[]</span>
+  
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">256</span><span class="p">):</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">single_byte_xor</span><span class="p">(</span> <span class="n">ciphertext</span> <span class="p">,</span> <span class="nb">chr</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">is_english</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+            <span class="n">keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="nb">chr</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="p">)</span>
+            <span class="n">plaintext</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">text</span> <span class="p">)</span>
+    
+    <span class="c"># There might be more than one string that match the rules of the is_english function.</span>
+    <span class="c"># Return all those strings and their corresponding keys and inspect visually to </span>
+    <span class="c"># determine which is the correct plaintext.</span>
+    <span class="k">return</span> <span class="n">keys</span><span class="p">,</span> <span class="n">plaintext</span>
+</code></pre></div></div>
+
+<p>Lets test it!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msg</span> <span class="o">=</span> <span class="s">'This is a very secret message!'</span>
+<span class="n">key</span> <span class="o">=</span> <span class="s">'</span><span class="se">\x0f</span><span class="s">'</span>
+<span class="n">ciphertext</span> <span class="o">=</span> <span class="n">single_byte_xor</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+<span class="n">k</span><span class="p">,</span> <span class="n">pt</span> <span class="o">=</span> <span class="n">break_single_byte_xor</span><span class="p">(</span> <span class="n">ciphertext</span> <span class="p">)</span>  
+<span class="k">print</span> <span class="s">"Keys: "</span><span class="p">,</span> <span class="n">k</span>
+<span class="k">print</span> <span class="s">"Plaintexts: "</span><span class="p">,</span> <span class="n">pt</span>
+</code></pre></div></div>
+
+<p>The output is:<br>
+Keys:  [‘\x0f’]<br>
+Plaintexts:  [‘This is a very secret message!’]</p>
+
+<h1 id="repeating-key-xor-cipher">Repeating-key XOR cipher</h1>
+<p>This cipher uses a key that is more than one byte long. The key is repeated until it matches the length of the message.<br>
+For example: key=’secret’ ; plaintext = ‘plaintext’ ; ciphertext = secretsec XOR plaintext</p>
+
+<p><img src="./breaking_xor_files/xor03.png" alt="xor03"></p>
+
+<p>Here is the implementation:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">repeating_key_xor</span><span class="p">(</span><span class="n">plaintext</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">plaintext</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="s">"KEY LENGTH EXCEPTION!"</span>
+  
+    <span class="n">ciphertext_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+    <span class="n">plaintext_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="n">plaintext</span><span class="p">)</span>
+    <span class="n">key_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+  
+    <span class="c"># XOR every byte of the plaintext with the corresponding byte from the key  </span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span> <span class="nb">len</span><span class="p">(</span><span class="n">plaintext</span><span class="p">)</span> <span class="p">):</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">key_bytes</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">plaintext_bytes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">^</span> <span class="n">k</span>
+        <span class="n">ciphertext_bytes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+      
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">ciphertext_bytes</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h1 id="breaking-the-repeating-key-xor-cipher">Breaking the repeating-key XOR cipher</h1>
+<p>This one is trickier. There are mainly two steps here:</p>
+<ol>
+  <li>Find the key size</li>
+  <li>Crack the key</li>
+</ol>
+
+<p>Finding the key size is done by the following algorithm:</p>
+<ol>
+  <li>Make a guess about the key length</li>
+  <li>Divide the ciphertext by blocks, each with length equal to the one chosen at step 1</li>
+  <li>Calculate the hamming distance between the first few blocks (I had best results with 4-5 blocks) and then take the average</li>
+  <li>Normalize the hamming distance by dividing it by the chosen key length</li>
+  <li>The key length that gives the smallest normalized hamming distance is PROBABLY the actual key length (if it’s not, it is usually one of the three with the smallest normalized hamming distance)</li>
+</ol>
+
+<p>Hamming distance is equal to the number of bits by which two strings of equal length differ. 
+Take this two bytes:</p>
+
+<p>00101010<br>
+01000010</p>
+
+<p>The hamming distance between them is 3, because they differ by three bits - the 4th, the 6th and the 7th (counting from the least significant).
+Calculating the hamming distance is easy - just XOR the two strings/bytes and count the number of ones in the resuting string.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">hamming_distance</span><span class="p">(</span><span class="n">str1</span><span class="p">,</span> <span class="n">str2</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">xor</span><span class="p">(</span><span class="n">str1</span><span class="p">,</span> <span class="n">str2</span><span class="p">)</span>
+  
+    <span class="k">return</span> <span class="nb">bin</span><span class="p">(</span> <span class="nb">int</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">'hex'</span><span class="p">),</span> <span class="mi">16</span><span class="p">)</span> <span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s">'1'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>To crack the key there are several steps:</p>
+<ol>
+  <li>Divide the ciphertext by blocks with equal length, same as the length of the key</li>
+  <li>Transpose the blocks. That is, make a new block from the first bytes of the blocks, then a second block containing the second bytes of the blocks and so on…</li>
+  <li>Each of the transposed blocks contains bytes that are encrypted with the same byte. That is the single-byte XOR cipher! And we already know how to break it.</li>
+  <li>Crack the single-byte key for each of the transposed blocks.</li>
+  <li>All bytes taken together produce the key</li>
+</ol>
+
+<p>Lets illustrate those steps:</p>
+
+<p><img src="./breaking_xor_files/xor04.png" alt="xor04"></p>
+
+<p>By now I hope you see how this method works :)</p>
+
+<p>Here is the function I wrote for finding the probable key length:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">find_xor_keysize</span><span class="p">(</span> <span class="n">ciphertext</span><span class="p">,</span> <span class="n">hamming_blocks</span><span class="p">,</span> <span class="n">minsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">maxsize</span><span class="o">=</span><span class="mi">10</span> <span class="p">):</span>
+    <span class="n">hamming_dict</span> <span class="o">=</span> <span class="p">{}</span> <span class="c"># &lt;keysize&gt; : &lt;hamming distance&gt;</span>
+  
+    <span class="k">if</span> <span class="p">(</span><span class="n">hamming_blocks</span><span class="o">*</span><span class="n">maxsize</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="s">"OUT OF BOUND EXCEPTION! Lower the hamming_blocks or the key maxsize!"</span>
+  
+    <span class="k">for</span> <span class="n">key_length</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">minsize</span><span class="p">,</span> <span class="n">maxsize</span><span class="p">):</span>
+        <span class="c"># Take the first 'hamming_blocks' blocks</span>
+        <span class="c"># with size key_length bytes</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">hamming_blocks</span><span class="p">):</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">ciphertext</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="n">key_length</span> <span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">key_length</span><span class="p">]</span> <span class="p">)</span>
+    
+        <span class="c"># Calculate the hamming distance between the blocks</span>
+        <span class="c"># (first,second) ; (first,third) ; (first,fourth)</span>
+        <span class="c"># (second, third) ; (second, fourth)</span>
+        <span class="c"># (third, fourth) ; There are sum(1,hamming_blocks-1) combinations</span>
+        <span class="n">hd</span> <span class="o">=</span> <span class="p">[]</span> <span class="c"># hamming distance</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span> <span class="n">hamming_blocks</span> <span class="o">-</span> <span class="mi">1</span> <span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">hamming_blocks</span> <span class="p">):</span>
+                <span class="n">hd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">hamming_distance</span><span class="p">(</span><span class="n">blocks</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">blocks</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="p">))</span>
+
+        <span class="n">hd_average</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">hd</span><span class="p">))</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">hd</span><span class="p">)</span>
+        <span class="n">hd_normalized</span> <span class="o">=</span> <span class="n">hd_average</span><span class="o">/</span><span class="n">key_length</span>
+
+        <span class="n">hamming_dict</span><span class="p">[</span><span class="n">key_length</span><span class="p">]</span> <span class="o">=</span> <span class="n">hd_normalized</span>
+  
+    <span class="c"># Get sorted (ascending order) list of tuples. Sorted by dictionary value (i.e. hamming distance)</span>
+    <span class="n">sorted_list_tuples</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">hamming_dict</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+  
+    <span class="c"># One of the three keys that produced the lowest hamming distance</span>
+    <span class="c"># is likely the actual size</span>
+    <span class="k">return</span> <span class="p">[</span> <span class="n">sorted_list_tuples</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">sorted_list_tuples</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">sorted_list_tuples</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="p">]</span>
+</code></pre></div></div>
+
+<p>The cracking step turns out to be a little harder. The transposed blocks are every n-th character of the ciphertext
+and so their corresponding plaintext isn’t composed of english words. This makes it harder to distinguish which one-byte key produces
+the correct plaintext. That’s why it’s necessary to have a long message (longer message -&gt; longer blocks) to be able to use statistical methods on the transposed blocks.</p>
+
+<p><img src="./breaking_xor_files/xor05.png" alt="xor05"></p>
+
+<p>1) I take every possible one-byte key for a single block and test if it produces ascii printable output. If it does, I store it in a list (that way I filter out may invalid keys). There is one such list for every block, which contains the keys that produce printable output.</p>
+
+<p>block1: keys[a,b,c,d]<br>
+block2: keys[1,2,3]<br>
+block3: keys[w,x,y,z]</p>
+
+<p>2) Then I store all those lists in another list. This list now contains all possible one-byte keys for every block.</p>
+
+<p>list: [ [a,b,c,d], [1,2,3], [w,x,y,z] ]</p>
+
+<p>3) After that I generate all possible combinations of the collected single-byte keys (with key length as returned from find_xor_keysize) using that list.</p>
+
+<p>a1w<br>
+a1x<br>
+a1y<br>
+a1z<br>
+a2w<br>
+a2x<br>
+and so on…</p>
+
+<p>4) Try every one of the produced multi-byte keys against the whole ciphertext, and test if the output is an english text.</p>
+
+<p>ciphertext<br>
+xor<br>
+a1wa1wa1wa<br>
+=<br>
+output</p>
+
+<p>test if output is english text</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">itertools</span>
+
+<span class="k">def</span> <span class="nf">divide_text_by_blocks</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">block_size</span><span class="p">):</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">num_blocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span><span class="o">/</span><span class="n">block_size</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">):</span>
+        <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">text</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="n">block_size</span> <span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">block_size</span><span class="p">]</span> <span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">blocks</span>
+
+<span class="k">def</span> <span class="nf">transpose</span><span class="p">(</span> <span class="n">blocks</span> <span class="p">):</span>
+    <span class="n">transposed</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">block_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">num_blocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">block_size</span><span class="p">):</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="p">[]</span> 
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">):</span>
+            <span class="c"># tmp is composed of the i-th character of every block</span>
+            <span class="n">tmp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">blocks</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span>
+        <span class="n">transposed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="s">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span> <span class="p">)</span>  
+    <span class="k">return</span> <span class="n">transposed</span>
+    
+<span class="k">def</span> <span class="nf">has_necessary_percentage_letters</span><span class="p">(</span> <span class="n">text</span><span class="p">,</span><span class="n">p</span><span class="o">=</span><span class="mi">80</span> <span class="p">):</span>
+    <span class="n">characters</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">letters</span> <span class="o">+</span> <span class="s">' '</span>
+  
+    <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">characters</span><span class="p">:</span>
+        <span class="n">cnt</span> <span class="o">+=</span> <span class="n">text</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+      
+    <span class="n">percent_characters</span> <span class="o">=</span>  <span class="nb">float</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+  
+    <span class="c"># The characters shoud be more than 38% of the text.</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">percent_characters</span> <span class="o">&lt;</span> <span class="n">p</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">return</span> <span class="bp">True</span>
+
+<span class="k">def</span> <span class="nf">is_printable_text</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">has_nonprintable_characters</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_necessary_percentage_punctuation</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_necessary_percentage_letters</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_vowels</span><span class="p">(</span> <span class="n">text</span> <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">return</span> <span class="bp">True</span>
+    
+<span class="k">def</span> <span class="nf">break_repeat_key_xor</span><span class="p">(</span> <span class="n">ciphertext</span> <span class="p">):</span>
+    <span class="c"># Tweaking this is useful. Lower value (0.03-0.05) helps find longer keys</span>
+    <span class="c"># Higher value (0.1 - 0.15) helps find shorter keys</span>
+    <span class="n">hamming_blocks</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">)</span><span class="o">*</span><span class="mf">0.06</span><span class="p">)</span>
+    <span class="n">key_sizes</span> <span class="o">=</span> <span class="n">find_xor_keysize</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">,</span> <span class="n">hamming_blocks</span> <span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">"Key sizes: "</span><span class="p">,</span> <span class="n">key_sizes</span>
+  
+    <span class="k">for</span> <span class="n">ks</span> <span class="ow">in</span> <span class="n">key_sizes</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">"Current key size: "</span><span class="p">,</span> <span class="n">ks</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="n">divide_text_by_blocks</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">,</span> <span class="n">ks</span><span class="p">)</span>
+    
+        <span class="n">transposed</span> <span class="o">=</span> <span class="n">transpose</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
+    
+        <span class="n">all_keys</span> <span class="o">=</span> <span class="p">[]</span> <span class="c"># list of lists. One list for every block. The list has all possible one-byte keys for the block.</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">transposed</span><span class="p">:</span>  
+            <span class="n">block_keys</span> <span class="o">=</span> <span class="p">[]</span> <span class="c"># store all possible one-byte keys for a single block</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">256</span><span class="p">):</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">single_byte_xor</span><span class="p">(</span> <span class="n">block</span> <span class="p">,</span> <span class="nb">chr</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">is_printable_text</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+                    <span class="n">block_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">chr</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+                <span class="k">print</span> <span class="n">block_keys</span>
+                <span class="n">all_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block_keys</span><span class="p">)</span>
+ 
+        <span class="n">real_keys</span> <span class="o">=</span> <span class="p">[]</span> <span class="c"># Stores keys with size ks. Generated from all possible combinations of one-byte keys contained in all_keys    </span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">all_keys</span><span class="p">):</span>
+            <span class="n">real_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="s">''</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="p">)</span>
+    
+        <span class="k">print</span> <span class="s">"Keys to try: "</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">real_keys</span><span class="p">)</span>
+        <span class="c"># Try every possible multy-byte key.</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">real_keys</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="n">repeating_key_xor</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">,</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">is_english</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+                <span class="k">print</span> <span class="s">"Plaintext: "</span> <span class="p">,</span><span class="n">text</span>
+                <span class="k">print</span> <span class="s">"Key: "</span><span class="p">,</span> <span class="n">key</span>
+                <span class="nb">raw_input</span><span class="p">()</span>
+                <span class="k">print</span> <span class="s">"=================="</span>
+</code></pre></div></div>
+
+<p>Lets test it!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msg</span> <span class="o">=</span> <span class="s">'''In today's electronic communication forums, encryption can be very
+mportant!  Do you know for a fact that when you send a message to someone else,
+that someone hasn't read it along the way?  Have you ever really sent something
+you didn't want anyone reading except the person you sent it to?  As more and
+more things become online, and "paperless" communication predictions start
+coming true, it's all the more reason for encryption.  Unlike the normal U.S.
+Mail where it is a crime to tamper with your mail, email-reading can commonly
+go unnoticed on electronic pathways as your message hops from system to system
+on its route towards its final destination.  Just think, the average Internet
+letter makes at least two hops before it reaches its recipient, usually more.
+Even on public BBS's, your mail is usually stored in plaintext. '''</span>
+<span class="n">key</span> <span class="o">=</span> <span class="s">"r!ck_@nd_m0rty"</span>
+
+<span class="n">c</span> <span class="o">=</span> <span class="n">repeating_key_xor</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+<span class="n">break_repeat_key_xor2</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>And the output is:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Key sizes:  [14, 7, 2]
+Current key size:  14
+['r']
+['!']
+['c']
+['k']
+['_']
+['@']
+['n']
+['d']
+['_']
+['m']
+['0', '7']
+['r']
+['t']
+['y']
+Keys to try:  2
+Plaintext:  In today's electronic communication forums, encryption can be very
+mportant!  Do you know for a fact that when you send a message to someone else,
+that someone hasn't read it along the way?  Have you ever really sent something
+you didn't want anyone reading except the person you sent it to?  As more and
+more things become online, and "paperless" communication predictions start
+coming true, it's all the more reason for encryption.  Unlike the normal U.S.
+Mail where it is a crime to tamper with your mail, email-reading can commonly
+go unnoticed on electronic pathways as your message hops from system to system
+on its route towards its final destination.  Just think, the average Internet
+letter makes at least two hops before it reaches its recipient, usually more.
+Even on public BBS's, your mail is usually stored in plaintext.
+Key:  r!ck_@nd_m0rty
+
+==================
+mportant!  Do'you know for f fact that whbn you send a jessage to sombone else,
+thas someone hasn t read it aloig the way?  Hfve you ever rbally sent sombthing
+more things bbcome online, fnd "paperless% communicatioi predictions ttartand
+coming tuue, it's all she more reasoi for encryptihn.  Unlike thb normal U.S.
+Jail where it ns a crime to samper with yorr mail, email*reading can chmmonly
+go unnhticed on elecsronic pathwayt as your messfge hops from tystem to systbm
+on its routb towards its ainal destinatnon.  Just thiik, the averagb Internet
+letser makes at lbast two hops eefore it reacoes its recipibnt, usually mhre.
+Even on prblic BBS's, yhur mail is usrally stored ii plaintext.
+Key:  r!ck_@nd_m7rty
+
+==================
+Current key size:  7
+[]
+[]
+[]
+[]
+[]
+[]
+[]
+Keys to try:  0
+Current key size:  2
+[]
+[]
+Keys to try:  0
+</code></pre></div></div>
+
+<p>And it worked! There were two possible keys for one of the blocks - [‘0’, ‘7’]. If the message was shorter there would’ve beem 
+many possible keys with thousands of combinations (or none).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">msg</span> <span class="o">=</span> <span class="s">'''In today's electronic communication forums, encryption can be very
+mportant!  Do you know for a fact that when you send a message to someone else,
+that someone hasn't read it along the way? '''</span>
+</code></pre></div></div>
+
+<p>And the output is:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Key sizes:  [14, 4, 7]
+Current key size:  14
+['r']
+['\x0c', '\r', '!', '#', '%', "'", ',', '-', '6', '7']
+['c']
+['k', '|', '}']
+['B', 'Q', 'R', 'S', 'X', 'Y', '[', ']', '^', '_', 'b', 'c', 'q', 'r', 's', 'x',
+ 'y', '{', '}', '~', '\x7f']
+[]
+['n']
+['d']
+['I', 'J', 'X', 'Z', ']', '_']
+['F', 'G', 'm', 'u']
+['0']
+['^', 'e', 'r']
+['t']
+['N', 'O', 'X', 'Y', '[', ']', '^', '_', 'n', 'o', 'x', 'y', '{', '}', '~']
+Keys to try:  0
+Current key size:  4
+[]
+[]
+[]
+[]
+Keys to try:  0
+Current key size:  7
+[]
+[]
+[]
+[]
+['X', 'Y', '[', '^', '_', 'r']
+[]
+['n']
+Keys to try:  0
+</code></pre></div></div>
+
+<p>As you can see, for some blocks there are many possible keys, and for others none were found.</p>
+
+</div>
+
+  <div id="disqus_thread"><iframe id="dsq-app2083" name="dsq-app2083" allowtransparency="true" frameborder="0" scrolling="no" tabindex="0" title="Disqus" width="100%" src="./breaking_xor_files/saved_resource.html" style="width: 1px !important; min-width: 100% !important; border: none !important; overflow: hidden !important; height: 390px !important;" horizontalscrolling="no" verticalscrolling="no"></iframe></div>
+    <script>
+
+      var disqus_config = function () {
+      this.page.url = 'https://idafchev.github.io/crypto/2017/04/13/crypto_part1.html';  // Replace PAGE_URL with your page's canonical URL variable
+      this.page.identifier = '/crypto/2017/04/13/crypto_part1.html'; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+      };
+      
+      (function() { // DON'T EDIT BELOW THIS LINE
+      var d = document, s = d.createElement('script');
+      s.src = '//idafchev.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+        
+
+      </section>
+
+    </div>
+
+  
+
+<iframe style="display: none;" src="./breaking_xor_files/saved_resource(1).html"></iframe></body></html>
