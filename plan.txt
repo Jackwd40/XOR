@@ -1,0 +1,11 @@
+order dictionaries by percent 
+
+A = 12
+
+Some other letter (x) = 12.1 
+
+Closest letters least distance prints dictionaries given
+
+A (Origianl letter) : x (New letter)
+
+Histogram has now been compared
